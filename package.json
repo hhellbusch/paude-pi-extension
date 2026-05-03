@@ -1,0 +1,26 @@
+{
+  "name": "paude-pi-extension",
+  "version": "0.1.0",
+  "description": "Paude environment awareness for Pi — commit discipline, network constraints, and AGENT-NOTES pattern. Activates only inside Paude containers.",
+  "keywords": ["pi-package", "pi-extension", "extension", "pi", "paude"],
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hhellbusch/paude-pi-extension.git"
+  },
+  "homepage": "https://github.com/hhellbusch/paude-pi-extension#readme",
+  "bugs": {
+    "url": "https://github.com/hhellbusch/paude-pi-extension/issues"
+  },
+  "files": ["extensions", "README.md", "LICENSE"],
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "*"
+  },
+  "pi": {
+    "extensions": ["./extensions"]
+  }
+}
