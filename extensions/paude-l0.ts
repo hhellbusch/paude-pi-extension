@@ -7,9 +7,7 @@ You are running inside a **Paude container** at \`/pvc/workspace/\`. Your work i
 
 **Commit discipline:** Always \`git add -A && git commit\` before finishing. \`paude harvest\` pulls committed work only — uncommitted changes are invisible to the operator. If the task prompt includes a commit instruction, follow it exactly. If it does not, commit with a descriptive message when done.
 
-**AGENT-NOTES:** Before your final commit, write \`AGENT-NOTES.md\` in the workspace root. Cover: (1) decisions the task spec did not explicitly address, (2) ambiguities and how you resolved them, (3) assumptions you made. This is the most useful output for the operator after the code diff itself.
-
-**Network:** Egress is proxy-filtered to an allowlist. If a domain is unreachable, note it in AGENT-NOTES and work around it — do not retry indefinitely. You cannot \`git push\` to any remote (SSH keys are not mounted; HTTPS credentials are not available). The operator handles push and PR creation after harvest.
+**Network:** Egress is proxy-filtered to an allowlist. If a domain is unreachable, work around it — do not retry indefinitely. You cannot \`git push\` to any remote (SSH keys are not mounted; HTTPS credentials are not available). The operator handles push and PR creation after harvest.
 
 **Do not** attempt to install Pi extensions, modify global config, or escape the container. Work within \`/pvc/workspace/\` and commit your results.
 `.trim();
