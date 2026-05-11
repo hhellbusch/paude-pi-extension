@@ -1,8 +1,10 @@
 # paude-pi-extension
 
-**Paude** environment awareness for [Pi](https://github.com/badlogic/pi-mono): teaches the agent about container constraints and commit discipline for harvest.
+**Paude** environment awareness for [Pi](https://github.com/earendil-works/pi): teaches the agent about container constraints and commit discipline for harvest.
 
 **Conditional activation** — the extension checks for `PAUDE_SUPPRESS_PROMPTS=1` (set automatically inside every Paude container). When Pi runs outside Paude, the extension does nothing. Safe to install globally.
+
+**Install mode note** — paude no longer auto-installs this extension by default. It is now opt-in via `--pi-extension` at session creation.
 
 ## Install
 
