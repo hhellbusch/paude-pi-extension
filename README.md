@@ -4,7 +4,27 @@
 
 **Conditional activation** — the extension checks for `PAUDE_SUPPRESS_PROMPTS=1` (set automatically inside every Paude container). When Pi runs outside Paude, the extension does nothing. Safe to install globally.
 
-**Install mode note** — paude no longer auto-installs this extension by default. It is now opt-in via `--pi-extension` at session creation.
+**Default loading** — add this extension to your paude user defaults to load it in every session:
+
+```bash
+paude defaults set pi-extensions "['git:https://github.com/hhellbusch/paude-pi-extension.git']"
+```
+
+Or create `~/.config/paude/defaults.json`:
+
+```json
+{
+  "defaults": {
+    "pi-extensions": ["git:https://github.com/hhellbusch/paude-pi-extension.git"]
+  }
+}
+```
+
+**Opt-out** — this extension provides essential environment awareness (container constraints, push capability, workspace customization detection). If you want to disable it for a single session, use:
+
+```bash
+paude create --agent pi --no-pi-extensions <name>
+```
 
 ## Install
 
