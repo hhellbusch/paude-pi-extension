@@ -113,7 +113,7 @@ export default function (pi: ExtensionAPI) {
 				currentName === "root" ||
 				currentName === "container"
 			) {
-				await exec("git", ["config", "user.name", "paude (agent)"]);
+				await exec("git", ["config", "user.name", "pi.dev (zanshin)"]);
 			}
 			if (
 				!currentEmail ||
@@ -121,7 +121,7 @@ export default function (pi: ExtensionAPI) {
 				currentEmail === "paude@container" ||
 				currentEmail === "root@localhost"
 			) {
-				await exec("git", ["config", "user.email", "paude+agent@workspace.local"]);
+				await exec("git", ["config", "user.email", "pi-dev+zanshin@workspace.local"]);
 			}
 		} catch {
 			// Git config setup is best-effort — if it fails, agent still works
