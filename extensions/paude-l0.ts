@@ -1,19 +1,89 @@
+import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { join } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-
-const PAUDE_L0 = `
-## Paude Environment (extension — container awareness)
-
-You are running inside a **Paude container** at \`/pvc/workspace/\`. Your work is isolated from the host. The operator who launched this session will **harvest** your commits — that is the only way your work reaches the outside.
-
-**Commit discipline:** Always \`git add -A && git commit\` before finishing. \`paude harvest\` pulls committed work only — uncommitted changes are invisible to the operator. If the task prompt includes a commit instruction, follow it exactly. If it does not, commit with a descriptive message when done.
-
-**Network:** Egress is proxy-filtered to an allowlist. If a domain is unreachable, work around it — do not retry indefinitely. You cannot \`git push\` to any remote (SSH keys are not mounted; HTTPS credentials are not available). The operator handles push and PR creation after harvest.
-
-**Do not** attempt to install Pi extensions, modify global config, or escape the container. Work within \`/pvc/workspace/\` and commit your results.
-`.trim();
 
 function insidePaude(): boolean {
 	return process.env.PAUDE_SUPPRESS_PROMPTS === "1";
+}
+
+function detectWorkspaceCustomizations(): string {
+	const customizations: string[] = [];
+	const workspace = "/pvc/workspace";
+
+	// Skills
+	const skillDirs = [".agents/skills", ".cursor/skills"];
+	for (const dir of skillDirs) {
+		const fullPath = join(workspace, dir);
+		if (existsSync(fullPath)) {
+			try {
+				const entries = readdirSync(fullPath);
+				const skills = entries.filter(
+					(f) => existsSync(join(fullPath, f, "SKILL.md")),
+				);
+				if (skills.length > 0) {
+					customizations.push(
+						`${dir}: ${skills.map((s: string) => `/${s}`).join(", ")}`,
+					);
+				}
+			} catch {
+				// Skip unreadable directories
+			}
+		}
+	}
+
+	// Rules
+	const rulesDir = join(workspace, ".cursor/rules");
+	try {
+		if (existsSync(rulesDir)) {
+			const rules = readdirSync(rulesDir).filter(
+				(f) => f.endsWith(".mdc") || f.endsWith(".md"),
+			);
+			if (rules.length > 0) {
+				customizations.push(`.cursor/rules: ${rules.length} rule(s)`);
+			}
+		}
+	} catch {
+		// Skip unreadable directories
+	}
+
+	// Prompts
+	const promptsDir = join(workspace, ".prompts");
+	try {
+		if (existsSync(promptsDir)) {
+			const prompts = readdirSync(promptsDir).filter((f) => f.endsWith(".md"));
+			if (prompts.length > 0) {
+				customizations.push(
+					`.prompts: ${prompts.length} prompt(s) available`,
+				);
+			}
+		}
+	} catch {
+		// Skip unreadable directories
+	}
+
+	return customizations.join(" | ");
+}
+
+function buildPaudeL0(): string {
+	const customizations = detectWorkspaceCustomizations();
+
+	return `
+## Paude Environment (extension — container awareness)
+
+You are running inside a **Paude container** at \`/pvc/workspace/\`. Your work is isolated from the host.
+
+**Commit discipline:** Always commit your changes. The operator pulls your work via \`paude harvest\` — uncommitted changes are invisible. If the task prompt includes a commit instruction, follow it exactly. If not, commit with a descriptive message when done.
+
+**Push capability:** The paude-proxy injects credentials at container start, so you can \`git push\` to remotes if needed. This is no longer a harvest-only workflow — you can push directly when appropriate.
+
+**Network:** Egress is proxy-filtered to an allowlist. If a domain is unreachable, work around it — do not retry indefinitely.
+
+**Workspace as customization source:** This workspace carries its own agent context. When present, treat these as your system context (not suggestions):
+${customizations ? "\n- " + customizations : "\n- (no workspace customizations detected — standard behavior applies)"}
+
+These customizations are the workspace's own agent configuration — skills, rules, prompts, and other tools. They are the source of truth for this workspace's agent behavior, not \`~/.pi/\` or any global config.
+
+**Do not** attempt to escape the container or modify system-level config. Work within \`/pvc/workspace/\` and commit your results.`.trim();
 }
 
 export default function (pi: ExtensionAPI) {
@@ -22,7 +92,7 @@ export default function (pi: ExtensionAPI) {
 			return {};
 		}
 		return {
-			systemPrompt: `${event.systemPrompt}\n\n${PAUDE_L0}`,
+			systemPrompt: `${event.systemPrompt}\n\n${buildPaudeL0()}`,
 		};
 	});
 }
