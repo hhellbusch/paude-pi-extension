@@ -87,10 +87,46 @@ These customizations are the workspace's own agent configuration — skills, rul
 }
 
 export default function (pi: ExtensionAPI) {
-	pi.on("before_agent_start", async (event) => {
+	pi.on("before_agent_start", async (event, ctx) => {
 		if (!insidePaude()) {
 			return {};
 		}
+
+		// Configure git authorship so commits show the agent as author,
+		// not the container user or host user.
+		// Read existing values to avoid overwriting user's global config.
+		try {
+			const exec = (cmd: string, args: string[]): Promise<{ stdout: string; stderr: string }> =>
+				ctx.exec(cmd, args, { rejectOnError: false });
+
+			const nameResult = await exec("git", ["config", "--get", "user.name"]);
+			const emailResult = await exec("git", ["config", "--get", "user.email"]);
+
+			const currentName = nameResult.stdout.trim();
+			const currentEmail = emailResult.stdout.trim();
+
+			// Only set if the current values look like a container/system user,
+			// not like a configured human identity.
+			if (
+				!currentName ||
+				currentName === "paude" ||
+				currentName === "root" ||
+				currentName === "container"
+			) {
+				await exec("git", ["config", "user.name", "paude (agent)"]);
+			}
+			if (
+				!currentEmail ||
+				!currentEmail.includes("@") ||
+				currentEmail === "paude@container" ||
+				currentEmail === "root@localhost"
+			) {
+				await exec("git", ["config", "user.email", "paude+agent@workspace.local"]);
+			}
+		} catch {
+			// Git config setup is best-effort — if it fails, agent still works
+		}
+
 		return {
 			systemPrompt: `${event.systemPrompt}\n\n${buildPaudeL0()}`,
 		};
