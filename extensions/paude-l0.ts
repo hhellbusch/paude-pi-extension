@@ -6,71 +6,98 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 function insidePaude(): boolean {
-	return process.env.PAUDE_SUPPRESS_PROMPTS === "1";
+  return process.env.PAUDE_SUPPRESS_PROMPTS === "1";
+}
+
+function discoverAllowlist(): string | null {
+  // Well-known location where the operator places the allowlist.
+  const source = "/dev/shm/paude-proxy/allowlist.txt";
+
+  if (!existsSync(source)) {
+    return null;
+  }
+
+  try {
+    const cacheDir = "/home/paude/.paude-proxy";
+    if (!existsSync(cacheDir)) {
+      mkdirSync(cacheDir, { recursive: true });
+    }
+
+    const cachePath = join(cacheDir, "allowlist.txt");
+    copyFileSync(source, cachePath);
+    return cachePath;
+  } catch {
+    return null;
+  }
 }
 
 function detectWorkspaceCustomizations(): string {
-	const customizations: string[] = [];
-	const workspace = "/pvc/workspace";
+  const customizations: string[] = [];
+  const workspace = "/pvc/workspace";
 
-	// Skills
-	const skillDirs = [".agents/skills", ".cursor/skills"];
-	for (const dir of skillDirs) {
-		const fullPath = join(workspace, dir);
-		if (existsSync(fullPath)) {
-			try {
-				const entries = readdirSync(fullPath);
-				const skills = entries.filter(
-					(f) => existsSync(join(fullPath, f, "SKILL.md")),
-				);
-				if (skills.length > 0) {
-					customizations.push(
-						`${dir}: ${skills.map((s: string) => `/${s}`).join(", ")}`,
-					);
-				}
-			} catch {
-				// Skip unreadable directories
-			}
-		}
-	}
+  // Skills
+  const skillDirs = [".agents/skills", ".cursor/skills"];
+  for (const dir of skillDirs) {
+    const fullPath = join(workspace, dir);
+    if (existsSync(fullPath)) {
+      try {
+        const entries = readdirSync(fullPath);
+        const skills = entries.filter(
+          (f) => existsSync(join(fullPath, f, "SKILL.md")),
+        );
+        if (skills.length > 0) {
+          customizations.push(
+            `${dir}: ${skills.map((s: string) => `/${s}`).join(", ")}`,
+          );
+        }
+      } catch {
+        // Skip unreadable directories
+      }
+    }
+  }
 
-	// Rules
-	const rulesDir = join(workspace, ".cursor/rules");
-	try {
-		if (existsSync(rulesDir)) {
-			const rules = readdirSync(rulesDir).filter(
-				(f) => f.endsWith(".mdc") || f.endsWith(".md"),
-			);
-			if (rules.length > 0) {
-				customizations.push(`.cursor/rules: ${rules.length} rule(s)`);
-			}
-		}
-	} catch {
-		// Skip unreadable directories
-	}
+  // Rules
+  const rulesDir = join(workspace, ".cursor/rules");
+  try {
+    if (existsSync(rulesDir)) {
+      const rules = readdirSync(rulesDir).filter(
+        (f) => f.endsWith(".mdc") || f.endsWith(".md"),
+      );
+      if (rules.length > 0) {
+        customizations.push(`.cursor/rules: ${rules.length} rule(s)`);
+      }
+    }
+  } catch {
+    // Skip unreadable directories
+  }
 
-	// Prompts
-	const promptsDir = join(workspace, ".prompts");
-	try {
-		if (existsSync(promptsDir)) {
-			const prompts = readdirSync(promptsDir).filter((f) => f.endsWith(".md"));
-			if (prompts.length > 0) {
-				customizations.push(
-					`.prompts: ${prompts.length} prompt(s) available`,
-				);
-			}
-		}
-	} catch {
-		// Skip unreadable directories
-	}
+  // Prompts
+  const promptsDir = join(workspace, ".prompts");
+  try {
+    if (existsSync(promptsDir)) {
+      const prompts = readdirSync(promptsDir).filter((f) => f.endsWith(".md"));
+      if (prompts.length > 0) {
+        customizations.push(
+          `.prompts: ${prompts.length} prompt(s) available`,
+        );
+      }
+    }
+  } catch {
+    // Skip unreadable directories
+  }
 
-	return customizations.join(" | ");
+  return customizations.join(" | ");
 }
 
 function buildPaudeL0(): string {
-	const customizations = detectWorkspaceCustomizations();
+  const customizations = detectWorkspaceCustomizations();
+  const allowlistPath = discoverAllowlist();
 
-	return `
+  const networkLine = allowlistPath
+    ? `- **Network allowlist:** domain allowlist cached at \`${allowlistPath}\` — read it when you need network access to non-obvious domains`
+    : "";
+
+  return `
 ## Paude Environment (extension — container awareness)
 
 You are running inside a **Paude container** at \`/pvc/workspace/\`. Your work is isolated from the host.
@@ -79,14 +106,13 @@ You are running inside a **Paude container** at \`/pvc/workspace/\`. Your work i
 
 **Push capability:** The paude-proxy injects credentials at container start, so you can \`git push\` to remotes if needed. This is no longer a harvest-only workflow — you can push directly when appropriate.
 
-**Network — paude-proxy:** Egress flows through **paude-proxy**, an HTTP/S proxy at `10.89.0.2:3128` (set via `https_proxy` environment variable). paude-proxy enforces an allowlist of approved domains — requests to non-whitelisted hosts receive a `403 Forbidden` at the CONNECT layer (before any TLS handshake completes). The operator manages the allowlist.
+**Network — paude-proxy:** Egress flows through **paude-proxy**, an HTTP/S proxy at \`10.89.0.2:3128\` (set via \`https_proxy\` environment variable). paude-proxy enforces an allowlist of approved domains — requests to non-whitelisted hosts receive a \`403 Forbidden\` at the CONNECT layer (before any TLS handshake completes).
 
-- **Detecting blocked domains:** If `curl` or any HTTP client hangs or returns `403` on the CONNECT tunnel, the domain is not whitelisted. Do not retry — it will not succeed.
-- **Workaround:** If a task requires data from a blocked domain, tell the operator and ask them to add it to the allowlist. For GitHub-hosted content (`github.com`, `raw.githubusercontent.com`, `docs.github.com`), HTTP access typically works.
-- **Common whitelisted domains:** `github.com`, `api.github.com`, `pypi.org` are generally available. Test before assuming.
-- **What works:** `git clone/push/pull` over HTTPS uses the proxy; credentials are injected by paude-proxy at container start, so authenticated git operations work when the remote domain is whitelisted.
+- **Allowlist:** When available, the operator's domain allowlist is cached at \`/home/paude/.paude-proxy/allowlist.txt\` — read it when a task requires network access to non-obvious domains.
+- **If no allowlist is available:** Test domains with \`curl\` (403 on CONNECT = blocked; do not retry). Ask the operator to add domains to the allowlist. For GitHub-hosted content (\`github.com\`, \`raw.githubusercontent.com\`, \`docs.github.com\`), HTTP access typically works.
+- **Git over HTTPS:** Credentials are injected by paude-proxy at container start, so \`git clone/push/pull\` work when the remote domain is whitelisted.
 
-**Workspace as customization source:** This workspace carries its own agent context. When present, treat these as your system context (not suggestions):
+${networkLine ? networkLine + "\n" : ""}**Workspace as customization source:** This workspace carries its own agent context. When present, treat these as your system context (not suggestions):
 ${customizations ? "\n- " + customizations : "\n- (no workspace customizations detected — standard behavior applies)"}
 
 These customizations are the workspace's own agent configuration — skills, rules, prompts, and other tools. They are the source of truth for this workspace's agent behavior, not \`~/.pi/\` or any global config.
@@ -95,73 +121,73 @@ These customizations are the workspace's own agent configuration — skills, rul
 }
 
 function installGitHooks(): void {
-	const hooksDir = "/home/paude/.git-hooks";
-	const hookSrc = join(__dirname, "prepare-commit-msg");
-	const hookDst = join(hooksDir, "prepare-commit-msg");
+  const hooksDir = "/home/paude/.git-hooks";
+  const hookSrc = join(__dirname, "prepare-commit-msg");
+  const hookDst = join(hooksDir, "prepare-commit-msg");
 
-	if (!existsSync(hookSrc)) return;
+  if (!existsSync(hookSrc)) return;
 
-	if (!existsSync(hooksDir)) {
-		mkdirSync(hooksDir, { recursive: true });
-	}
+  if (!existsSync(hooksDir)) {
+    mkdirSync(hooksDir, { recursive: true });
+  }
 
-	copyFileSync(hookSrc, hookDst);
-	chmodSync(hookDst, 0o755);
+  copyFileSync(hookSrc, hookDst);
+  chmodSync(hookDst, 0o755);
 }
 
 export default function (pi: ExtensionAPI) {
-	pi.on("before_agent_start", async (event, ctx) => {
-		if (!insidePaude()) {
-			return {};
-		}
+  pi.on("before_agent_start", async (event, ctx) => {
+    if (!insidePaude()) {
+      return {};
+    }
 
-		// Install co-author git hook so Pi appears as co-author on commits.
-		try {
-			installGitHooks();
-			ctx.exec("git", ["config", "--global", "core.hooksPath", "/home/paude/.git-hooks"], {
-				rejectOnError: false,
-			});
-		} catch {
-			// Hook installation is best-effort — if it fails, agent still works
-		}
+    // Install co-author git hook so Pi appears as co-author on commits.
+    try {
+      installGitHooks();
+      ctx.exec("git", ["config", "--global", "core.hooksPath", "/home/paude/.git-hooks"], {
+        rejectOnError: false,
+      });
+    } catch {
+      // Hook installation is best-effort — if it fails, agent still works
+    }
 
-		// Configure git authorship so commits show the agent as author,
-		// not the container user or host user.
-		// Read existing values to avoid overwriting user's global config.
-		try {
-			const exec = (cmd: string, args: string[]): Promise<{ stdout: string; stderr: string }> =>
-				ctx.exec(cmd, args, { rejectOnError: false });
+    // Configure git authorship so commits show the agent as author,
+    // not the container user or host user.
+    // Read existing values to avoid overwriting user's global config.
+    try {
+      const exec = (cmd: string, args: string[]): Promise<{ stdout: string; stderr: string }> =>
+        ctx.exec(cmd, args, { rejectOnError: false });
 
-			const nameResult = await exec("git", ["config", "--get", "user.name"]);
-			const emailResult = await exec("git", ["config", "--get", "user.email"]);
+      const nameResult = await exec("git", ["config", "--get", "user.name"]);
+      const emailResult = await exec("git", ["config", "--get", "user.email"]);
 
-			const currentName = nameResult.stdout.trim();
-			const currentEmail = emailResult.stdout.trim();
+      const currentName = nameResult.stdout.trim();
+      const currentEmail = emailResult.stdout.trim();
 
-			// Only set if the current values look like a container/system user,
-			// not like a configured human identity.
-			if (
-				!currentName ||
-				currentName === "paude" ||
-				currentName === "root" ||
-				currentName === "container"
-			) {
-				await exec("git", ["config", "user.name", "pi.dev (zanshin)"]);
-			}
-			if (
-				!currentEmail ||
-				!currentEmail.includes("@") ||
-				currentEmail === "paude@container" ||
-				currentEmail === "root@localhost"
-			) {
-				await exec("git", ["config", "user.email", "pi-dev+zanshin@workspace.local"]);
-			}
-		} catch {
-			// Git config setup is best-effort — if it fails, agent still works
-		}
+      // Only set if the current values look like a container/system user,
+      // not like a configured human identity.
+      if (
+        !currentName ||
+        currentName === "paude" ||
+        currentName === "root" ||
+        currentName === "container"
+      ) {
+        await exec("git", ["config", "user.name", "pi.dev (zanshin)"]);
+      }
+      if (
+        !currentEmail ||
+        !currentEmail.includes("@") ||
+        currentEmail === "paude@container" ||
+        currentEmail === "root@localhost"
+      ) {
+        await exec("git", ["config", "user.email", "pi-dev+zanshin@workspace.local"]);
+      }
+    } catch {
+      // Git config setup is best-effort — if it fails, agent still works
+    }
 
-		return {
-			systemPrompt: `${event.systemPrompt}\n\n${buildPaudeL0()}`,
-		};
-	});
+    return {
+      systemPrompt: `${event.systemPrompt}\n\n${buildPaudeL0()}`,
+    };
+  });
 }
