@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Inject Co-authored-by Pi trailer into every commit message.
+# Installed by paude-pi-extension on session start.
+
+COMMIT_MSG_FILE="$1"
+COMMIT_SOURCE="$2"
+
+# Skip merge and squash commits — these manage their own message structure.
+[ "$COMMIT_SOURCE" = "merge" ] && exit 0
+[ "$COMMIT_SOURCE" = "squash" ] && exit 0
+
+# Check if Co-authored-by is already present (user may have added their own)
+if grep -q "^Co-authored-by:" "$COMMIT_MSG_FILE"; then
+    exit 0
+fi
+
+# Append the AI co-author trailer
+echo "" >> "$COMMIT_MSG_FILE"
+echo "Co-authored-by: Pi <noreply@pi>" >> "$COMMIT_MSG_FILE"
+
+exit 0

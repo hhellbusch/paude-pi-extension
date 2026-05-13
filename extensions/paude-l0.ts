@@ -1,6 +1,9 @@
-import { readFileSync, readdirSync, existsSync } from "node:fs";
-import { join } from "node:path";
+import { readFileSync, readdirSync, existsSync, copyFileSync, chmodSync, mkdirSync } from "node:fs";
+import { join, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 function insidePaude(): boolean {
 	return process.env.PAUDE_SUPPRESS_PROMPTS === "1";
@@ -86,10 +89,35 @@ These customizations are the workspace's own agent configuration — skills, rul
 **Do not** attempt to escape the container or modify system-level config. Work within \`/pvc/workspace/\` and commit your results.`.trim();
 }
 
+function installGitHooks(): void {
+	const hooksDir = "/home/paude/.git-hooks";
+	const hookSrc = join(__dirname, "prepare-commit-msg");
+	const hookDst = join(hooksDir, "prepare-commit-msg");
+
+	if (!existsSync(hookSrc)) return;
+
+	if (!existsSync(hooksDir)) {
+		mkdirSync(hooksDir, { recursive: true });
+	}
+
+	copyFileSync(hookSrc, hookDst);
+	chmodSync(hookDst, 0o755);
+}
+
 export default function (pi: ExtensionAPI) {
 	pi.on("before_agent_start", async (event, ctx) => {
 		if (!insidePaude()) {
 			return {};
+		}
+
+		// Install co-author git hook so Pi appears as co-author on commits.
+		try {
+			installGitHooks();
+			ctx.exec("git", ["config", "--global", "core.hooksPath", "/home/paude/.git-hooks"], {
+				rejectOnError: false,
+			});
+		} catch {
+			// Hook installation is best-effort — if it fails, agent still works
 		}
 
 		// Configure git authorship so commits show the agent as author,
