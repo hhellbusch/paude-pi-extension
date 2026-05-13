@@ -52,7 +52,7 @@ When running inside a Paude container, a compact block is appended to the system
 |---------|---------------|
 | Environment | Running at `/pvc/workspace/` inside an isolated container; operator harvests commits |
 | Commit discipline | Always commit before finishing — `paude harvest` only sees committed work |
-| Network | Egress is proxy-filtered; no `git push`; work around unreachable domains |
+| Network — paude-proxy | Egress flows through paude-proxy at `10.89.0.2:3128` via `https_proxy`; domains are allowlisted — non-whitelisted hosts return `403 Forbidden` at the CONNECT layer; operator manages the allowlist; work around blocked domains by asking the operator |
 
 ## What ships
 

@@ -79,7 +79,12 @@ You are running inside a **Paude container** at \`/pvc/workspace/\`. Your work i
 
 **Push capability:** The paude-proxy injects credentials at container start, so you can \`git push\` to remotes if needed. This is no longer a harvest-only workflow — you can push directly when appropriate.
 
-**Network:** Egress is proxy-filtered to an allowlist. If a domain is unreachable, work around it — do not retry indefinitely.
+**Network — paude-proxy:** Egress flows through **paude-proxy**, an HTTP/S proxy at `10.89.0.2:3128` (set via `https_proxy` environment variable). paude-proxy enforces an allowlist of approved domains — requests to non-whitelisted hosts receive a `403 Forbidden` at the CONNECT layer (before any TLS handshake completes). The operator manages the allowlist.
+
+- **Detecting blocked domains:** If `curl` or any HTTP client hangs or returns `403` on the CONNECT tunnel, the domain is not whitelisted. Do not retry — it will not succeed.
+- **Workaround:** If a task requires data from a blocked domain, tell the operator and ask them to add it to the allowlist. For GitHub-hosted content (`github.com`, `raw.githubusercontent.com`, `docs.github.com`), HTTP access typically works.
+- **Common whitelisted domains:** `github.com`, `api.github.com`, `pypi.org` are generally available. Test before assuming.
+- **What works:** `git clone/push/pull` over HTTPS uses the proxy; credentials are injected by paude-proxy at container start, so authenticated git operations work when the remote domain is whitelisted.
 
 **Workspace as customization source:** This workspace carries its own agent context. When present, treat these as your system context (not suggestions):
 ${customizations ? "\n- " + customizations : "\n- (no workspace customizations detected — standard behavior applies)"}
