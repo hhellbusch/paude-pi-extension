@@ -2,7 +2,13 @@
   "name": "paude-pi-extension",
   "version": "0.1.0",
   "description": "Paude environment awareness for Pi — commit discipline and network constraints. Activates only inside Paude containers.",
-  "keywords": ["pi-package", "pi-extension", "extension", "pi", "paude"],
+  "keywords": [
+    "pi-package",
+    "pi-extension",
+    "extension",
+    "pi",
+    "paude"
+  ],
   "license": "MIT",
   "type": "module",
   "repository": {
@@ -13,14 +19,30 @@
   "bugs": {
     "url": "https://github.com/hhellbusch/paude-pi-extension/issues"
   },
-  "files": ["extensions", "README.md", "LICENSE"],
+  "files": [
+    "extensions",
+    "README.md",
+    "LICENSE"
+  ],
   "publishConfig": {
     "access": "public"
+  },
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "npm run check"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*"
   },
   "pi": {
-    "extensions": ["./extensions"]
+    "extensions": [
+      "./extensions"
+    ]
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
   }
 }

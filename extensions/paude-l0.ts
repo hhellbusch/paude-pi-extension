@@ -117,7 +117,9 @@ ${customizations ? "\n- " + customizations : "\n- (no workspace customizations d
 
 These customizations are the workspace's own agent configuration — skills, rules, prompts, and other tools. They are the source of truth for this workspace's agent behavior, not \`~/.pi/\` or any global config.
 
-**Do not** attempt to escape the container or modify system-level config. Work within \`/pvc/workspace/\` and commit your results.`.trim();
+**Do not** attempt to escape the container or modify system-level config. Work within \`/pvc/workspace/\` and commit your results.
+
+**Pi extension development:** When modifying a Pi extension (any package with \`"pi": { "extensions": [...] }\` in package.json), run \`npm test\` in the extension directory before pushing. \`npm test\` runs TypeScript type checking (\`tsc --noEmit\`) and a jiti-based loader simulation that mirrors Pi's exact validation. Both checks together catch missing imports, type errors, and invalid extension structure before the push reaches Pi's loader. The \`pi-extension-guard\` extension enforces this automatically on \`git push\` — do not bypass it.`.trim();
 }
 
 function installGitHooks(): void {
@@ -144,9 +146,7 @@ export default function (pi: ExtensionAPI) {
     // Install co-author git hook so Pi appears as co-author on commits.
     try {
       installGitHooks();
-      ctx.exec("git", ["config", "--global", "core.hooksPath", "/home/paude/.git-hooks"], {
-        rejectOnError: false,
-      });
+      pi.exec("git", ["config", "--global", "core.hooksPath", "/home/paude/.git-hooks"]);
     } catch {
       // Hook installation is best-effort — if it fails, agent still works
     }
@@ -156,7 +156,7 @@ export default function (pi: ExtensionAPI) {
     // Read existing values to avoid overwriting user's global config.
     try {
       const exec = (cmd: string, args: string[]): Promise<{ stdout: string; stderr: string }> =>
-        ctx.exec(cmd, args, { rejectOnError: false });
+        pi.exec(cmd, args);
 
       const nameResult = await exec("git", ["config", "--get", "user.name"]);
       const emailResult = await exec("git", ["config", "--get", "user.email"]);
