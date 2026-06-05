@@ -104,13 +104,13 @@ You are running inside a **Paude container** at \`/pvc/workspace/\`. Your work i
 
 **Commit discipline:** Always commit your changes. The operator pulls your work via \`paude harvest\` — uncommitted changes are invisible. If the task prompt includes a commit instruction, follow it exactly. If not, commit with a descriptive message when done.
 
-**Push capability:** The paude-proxy injects credentials at container start, so you can \`git push\` to remotes if needed. This is no longer a harvest-only workflow — you can push directly when appropriate.
+**Push capability:** The paude-proxy injects credentials at connect time, so you can \`git push\` to remotes if needed. This is no longer a harvest-only workflow — you can push directly when appropriate.
 
 **Network — paude-proxy:** Egress flows through **paude-proxy**, an HTTP/S proxy at \`10.89.0.2:3128\` (set via \`https_proxy\` environment variable). paude-proxy enforces an allowlist of approved domains — requests to non-whitelisted hosts receive a \`403 Forbidden\` at the CONNECT layer (before any TLS handshake completes).
 
 - **Allowlist:** When available, the operator's domain allowlist is cached at \`/home/paude/.paude-proxy/allowlist.txt\` — read it when a task requires network access to non-obvious domains.
 - **If no allowlist is available:** Test domains with \`curl\` (403 on CONNECT = blocked; do not retry). Ask the operator to add domains to the allowlist. For GitHub-hosted content (\`github.com\`, \`raw.githubusercontent.com\`, \`docs.github.com\`), HTTP access typically works.
-- **Git over HTTPS:** Credentials are injected by paude-proxy at container start, so \`git clone/push/pull\` work when the remote domain is whitelisted.
+- **Git over HTTPS:** Credentials are injected by paude-proxy at connect time (not container start), so \`git clone/push/pull\` work when the remote domain is whitelisted. A new token can be picked up by reconnecting without a full container restart.
 
 ${networkLine ? networkLine + "\n" : ""}**Workspace as customization source:** This workspace carries its own agent context. When present, treat these as your system context (not suggestions):
 ${customizations ? "\n- " + customizations : "\n- (no workspace customizations detected — standard behavior applies)"}
