@@ -106,11 +106,29 @@ You are running inside a **Paude container** at \`/pvc/workspace/\`. Your work i
 
 **Push capability:** The paude-proxy injects credentials at connect time, so you can \`git push\` to remotes if needed. This is no longer a harvest-only workflow — you can push directly when appropriate.
 
-**Network — paude-proxy:** Egress flows through **paude-proxy**, an HTTP/S proxy at \`10.89.0.2:3128\` (set via \`https_proxy\` environment variable). paude-proxy enforces an allowlist of approved domains — requests to non-whitelisted hosts receive a \`403 Forbidden\` at the CONNECT layer (before any TLS handshake completes).
+**Credentials & paude-proxy:** Egress routes through **paude-proxy** (MITM credential broker) at \`10.89.0.2:3128\`. The proxy terminates TLS and injects real API keys into request headers based on destination domain. **You never see real credentials** — you use dummy placeholders (\`paude-proxy-managed\`) and the proxy swaps in real values before requests leave the container. This means:
 
-- **Allowlist:** When available, the operator's domain allowlist is cached at \`/home/paude/.paude-proxy/allowlist.txt\` — read it when a task requires network access to non-obvious domains.
+- If you need API access (YouTube Data API, etc.), the operator adds the key to the proxy's credential routing config — you don't need to handle secrets
+- The proxy supports custom credential routing via \`PAUDE_PROXY_CREDENTIALS_CONFIG\`
+- Google ADC (Vertex AI) uses token vending — the proxy intercepts OAuth2 token exchanges and provides real tokens from its own ADC
+- Current supported credential types: Anthropic (api_key), OpenAI (bearer), Cursor (bearer), GitHub PAT (bearer), Google ADC (OAuth2 with auto-refresh)
+
+**Network — paude-proxy:** Egress flows through the proxy at \`10.89.0.2:3128\` (set via \`https_proxy\`). The proxy enforces:
+
+- **Domain allowlist:** approved domains only — non-whitelisted hosts receive \`403 Forbidden\` at the CONNECT layer
+- **Domain filtering:** requests to non-whitelisted hosts are blocked before any TLS handshake
+
+- **Allowlist:** When available, the operator's domain allowlist is cached at \`/home/paude/.paude-proxy/allowlist.txt\` — read it when you need network access to non-obvious domains.
 - **If no allowlist is available:** Test domains with \`curl\` (403 on CONNECT = blocked; do not retry). Ask the operator to add domains to the allowlist. For GitHub-hosted content (\`github.com\`, \`raw.githubusercontent.com\`, \`docs.github.com\`), HTTP access typically works.
 - **Git over HTTPS:** Credentials are injected by paude-proxy at connect time (not container start), so \`git clone/push/pull\` work when the remote domain is whitelisted. A new token can be picked up by reconnecting without a full container restart.
+
+**Available agents in Paude:** The Paude platform supports multiple agent types beyond Pi:
+
+- **Pi** (current) — coding focus, TypeScript extensions, rich tool API. Use for active coding tasks.
+- **OpenClaw** — autonomous scheduling (heartbeat + cron), persistent memory (MEMORY.md + memory_search), web gateway, multi-channel delivery. Use \`paude create --agent openclaw\` from the host. Ideal for scheduled monitoring, background work, and curation tasks.
+- **Hermes Agent** — self-improving with built-in learning loop, built-in cron, model-agnostic (200+ via OpenRouter, 300+ via Nous Portal). NOT yet in Paude.
+
+When a task requires autonomous scheduling, persistent memory, or background monitoring, consider that OpenClaw (via Paude) may be the right platform rather than Pi. See \`.planning/youtube-curation-engine/platform-research.md\` for the full agent comparison.
 
 ${networkLine ? networkLine + "\n" : ""}**Workspace as customization source:** This workspace carries its own agent context. When present, treat these as your system context (not suggestions):
 ${customizations ? "\n- " + customizations : "\n- (no workspace customizations detected — standard behavior applies)"}
